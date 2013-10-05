@@ -103,6 +103,16 @@ status_t getPixelFormatInfo(PixelFormat format, PixelFormatInfo* info)
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
         info->bitsPerPixel = 16;
         goto done;
+#ifdef STE_HARDWARE
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP_TILED:
+    case HAL_PIXEL_FORMAT_YCbCr_420_P:
+    case HAL_PIXEL_FORMAT_YCrCb_420_P:
+    case HAL_PIXEL_FORMAT_YCbCr_420_I:
+    case HAL_PIXEL_FORMAT_CbYCrY_420_I:
+    case HAL_PIXEL_FORMAT_YCBCR42XMBN:
+#endif
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
     case HAL_PIXEL_FORMAT_YV12:
         info->bitsPerPixel = 12;
