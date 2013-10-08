@@ -395,6 +395,10 @@ private:
         // to EGL_NO_SYNC_KHR when the buffer is created and (optionally, based
         // on a compile-time option) set to a new sync object in updateTexImage.
         EGLSyncKHR mEglFence;
+
+#ifdef STE_HARDWARE
+        sp<GraphicBuffer> mConvertBuffer;
+#endif
     };
 
     // mEglDisplay is the EGLDisplay with which this GLConsumer is currently

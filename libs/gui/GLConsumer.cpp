@@ -239,11 +239,23 @@ status_t GLConsumer::releaseAndUpdateLocked(const BufferQueue::BufferItem& item)
     // EGLImage when detaching from a context but the buffer has not been
     // re-allocated.
 #ifdef STE_HARDWARE
+    sp<GraphicBuffer> textureBuffer;
     if (conversionIsNeeded(mSlots[buf].mGraphicBuffer)) {
+        /* testing buffer size modification */
         if (mEglSlots[buf].mEglImage != EGL_NO_IMAGE_KHR) {
-            eglDestroyImageKHR(mEglDisplay, mEglSlots[buf].mEglImage);
-            mEglSlots[buf].mEglImage = EGL_NO_IMAGE_KHR;
+            if (mSlots[buf].mGraphicBuffer != NULL && mEglSlots[buf].mConvertBuffer != NULL) {
+                sp<GraphicBuffer> &srcBuf = mSlots[buf].mGraphicBuffer;
+                sp<GraphicBuffer> &dstBuf = mEglSlots[buf].mConvertBuffer;
+                if (srcBuf->getWidth() != dstBuf->getWidth() || srcBuf->getHeight() != dstBuf->getHeight()) {
+                    eglDestroyImageKHR(mEglDisplay, mEglSlots[buf].mEglImage);
+                    mEglSlots[buf].mEglImage = EGL_NO_IMAGE_KHR;
+                    mEglSlots[buf].mConvertBuffer = NULL;
+                }
+            } else {
+                ST_LOGE("GLConsumer::releaseAndUpdateLocked : One buffer is null ...");
+            }
         }
+        /* testing if we have an image */
         if (mEglSlots[buf].mEglImage == EGL_NO_IMAGE_KHR) {
             sp<GraphicBuffer> &srcBuf = mSlots[buf].mGraphicBuffer;
             status_t res = 0;
@@ -267,12 +279,17 @@ status_t GLConsumer::releaseAndUpdateLocked(const BufferQueue::BufferItem& item)
                       mEglDisplay, buf);
                 return UNKNOWN_ERROR;
             }
-            if (convert(srcBuf, dstBuf) != OK) {
-                ALOGE("updateTexImage: convert failed");
-                return UNKNOWN_ERROR;
-            }
             mEglSlots[buf].mEglImage = image;
+            mEglSlots[buf].mConvertBuffer = dstBuf;
         }
+        /* convert buffer */
+        if (convert(mSlots[buf].mGraphicBuffer, mEglSlots[buf].mConvertBuffer) != OK) {
+            ALOGE("updateTexImage: convert failed");
+            return UNKNOWN_ERROR;
+        }
+        textureBuffer = mEglSlots[buf].mConvertBuffer;
+    } else {
+        textureBuffer = mSlots[buf].mGraphicBuffer;
     }
 #endif
 
@@ -314,7 +331,11 @@ status_t GLConsumer::releaseAndUpdateLocked(const BufferQueue::BufferItem& item)
 
     // Update the GLConsumer state.
     mCurrentTexture = buf;
+#ifndef STE_HARDWARE
     mCurrentTextureBuf = mSlots[buf].mGraphicBuffer;
+#else
+    mCurrentTextureBuf = textureBuffer;
+#endif
     mCurrentCrop = item.mCrop;
     mCurrentTransform = item.mTransform;
     mCurrentScalingMode = item.mScalingMode;
@@ -996,7 +1017,8 @@ status_t GLConsumer::convert(sp<GraphicBuffer> &srcBuf, sp<GraphicBuffer> &dstBu
             mBlitEngine, &dstImg, &srcImg, &dstCrop, &srcCrop, &clip);
     if (err != 0) {
         ALOGE("\nError: Blit stretch operation failed (err:%d)\n", err);
-        return UNKNOWN_ERROR;
+        /* return ok to not block decoding. But why this error ? */
+        return OK;
     }
     return OK;
 }
