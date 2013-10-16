@@ -1117,13 +1117,14 @@ status_t SurfaceTexture::convert(sp<GraphicBuffer> &srcBuf, sp<GraphicBuffer> &d
     int err = mBlitEngine->stretch(
             mBlitEngine, &dstImg, &srcImg, &dstCrop, &srcCrop, &clip);
     if (err != 0) {
-	ALOGE("Error: Blit stretch operation failed, retry once (err:%d)", err);
+        ALOGE("Error: Blit stretch operation failed, retry once (err:%d)", err);
         // TODO: Bad boy doing hacks here, blit stretch operation should be completely fixed.
         int err = mBlitEngine->stretch(
             mBlitEngine, &dstImg, &srcImg, &dstCrop, &srcCrop, &clip);
         if (err != 0) {
             ALOGE("Error: Blit stretch operation failed (err:%d)", err);
             return UNKNOWN_ERROR;
+        }
     }
     return OK;
 }
