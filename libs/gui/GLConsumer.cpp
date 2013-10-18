@@ -94,6 +94,9 @@ GLConsumer::GLConsumer(GLuint tex, bool allowSynchronousMode,
     mEglDisplay(EGL_NO_DISPLAY),
     mEglContext(EGL_NO_CONTEXT),
     mCurrentTexture(BufferQueue::INVALID_BUFFER_SLOT),
+#ifdef STE_HARDWARE
+    mNextBlitSlot(0),
+#endif
     mAttached(true)
 {
 #ifdef STE_HARDWARE
