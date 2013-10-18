@@ -241,53 +241,51 @@ status_t GLConsumer::releaseAndUpdateLocked(const BufferQueue::BufferItem& item)
 #ifdef STE_HARDWARE
     sp<GraphicBuffer> textureBuffer;
     if (conversionIsNeeded(mSlots[buf].mGraphicBuffer)) {
-        /* testing buffer size modification */
+        /* deallocate image each time .... */
         if (mEglSlots[buf].mEglImage != EGL_NO_IMAGE_KHR) {
-            if (mSlots[buf].mGraphicBuffer != NULL && mEglSlots[buf].mConvertBuffer != NULL) {
-                sp<GraphicBuffer> &srcBuf = mSlots[buf].mGraphicBuffer;
-                sp<GraphicBuffer> &dstBuf = mEglSlots[buf].mConvertBuffer;
-                if (srcBuf->getWidth() != dstBuf->getWidth() || srcBuf->getHeight() != dstBuf->getHeight()) {
-                    eglDestroyImageKHR(mEglDisplay, mEglSlots[buf].mEglImage);
-                    mEglSlots[buf].mEglImage = EGL_NO_IMAGE_KHR;
-                    mEglSlots[buf].mConvertBuffer = NULL;
-                }
-            } else {
-                ST_LOGE("GLConsumer::releaseAndUpdateLocked : One buffer is null ...");
+            eglDestroyImageKHR(mEglDisplay, mEglSlots[buf].mEglImage);
+            mEglSlots[buf].mEglImage = EGL_NO_IMAGE_KHR;
+        }
+        /* test if source and convert buffer size are ok */
+        if (mSlots[buf].mGraphicBuffer != NULL && mBlitSlots[mNextBlitSlot] != NULL) {
+            sp<GraphicBuffer> &srcBuf = mSlots[buf].mGraphicBuffer;
+            sp<GraphicBuffer> &dstBuf = mBlitSlots[mNextBlitSlot];
+            if (srcBuf->getWidth() != dstBuf->getWidth() || srcBuf->getHeight() != dstBuf->getHeight()) {
+                mBlitSlots[mNextBlitSlot] = NULL;
             }
         }
-        /* testing if we have an image */
-        if (mEglSlots[buf].mEglImage == EGL_NO_IMAGE_KHR) {
+        /* allocate convert buffer if needed */
+        if (mBlitSlots[mNextBlitSlot] == NULL) {
             sp<GraphicBuffer> &srcBuf = mSlots[buf].mGraphicBuffer;
             status_t res = 0;
-
-            sp<GraphicBuffer> dstBuf(
-                mGraphicBufferAlloc->createGraphicBuffer(srcBuf->getWidth(),
-                                                         srcBuf->getHeight(),
-                                                         PIXEL_FORMAT_RGBA_8888,
-                                                         srcBuf->getUsage(),
-                                                         &res));
+            sp<GraphicBuffer> dstBuf(mGraphicBufferAlloc->createGraphicBuffer(srcBuf->getWidth(),
+                                                                              srcBuf->getHeight(),
+                                                                              PIXEL_FORMAT_RGBA_8888,
+                                                                              srcBuf->getUsage(),
+                                                                              &res));
             if (dstBuf == 0) {
-                ST_LOGE("updateTexImage: GLConsumer::createGraphicBuffer failed");
+                ST_LOGE("updateTexImage: SurfaceComposer::createGraphicBuffer failed");
                 return NO_MEMORY;
             }
             if (res != NO_ERROR) {
-                ST_LOGW("updateTexImage: GLConsumer::createGraphicBuffer error=%#04x", res);
+                ST_LOGW("updateTexImage: SurfaceComposer::createGraphicBuffer error=%#04x", res);
             }
-            EGLImageKHR image = createImage(mEglDisplay, dstBuf);
-            if (image == EGL_NO_IMAGE_KHR) {
-                ST_LOGW("releaseAndUpdate: unable to createImage on display=%p slot=%d",
-                      mEglDisplay, buf);
-                return UNKNOWN_ERROR;
-            }
-            mEglSlots[buf].mEglImage = image;
-            mEglSlots[buf].mConvertBuffer = dstBuf;
+            mBlitSlots[mNextBlitSlot] = dstBuf;
         }
+        /* allocate image */
+        EGLImageKHR image = createImage(mEglDisplay, mBlitSlots[mNextBlitSlot]);
+        if (image == EGL_NO_IMAGE_KHR) {
+            ST_LOGW("releaseAndUpdate: unable to createImage on display=%p slot=%d", mEglDisplay, buf);
+            return UNKNOWN_ERROR;
+        }
+        mEglSlots[buf].mEglImage = image;
         /* convert buffer */
-        if (convert(mSlots[buf].mGraphicBuffer, mEglSlots[buf].mConvertBuffer) != OK) {
+        if (convert(mSlots[buf].mGraphicBuffer, mBlitSlots[mNextBlitSlot]) != OK) {
             ALOGE("updateTexImage: convert failed");
             return UNKNOWN_ERROR;
         }
-        textureBuffer = mEglSlots[buf].mConvertBuffer;
+        textureBuffer = mBlitSlots[mNextBlitSlot];
+        mNextBlitSlot = (mNextBlitSlot + 1) % NUM_BLIT_BUFFER_SLOTS;
     } else {
         textureBuffer = mSlots[buf].mGraphicBuffer;
     }

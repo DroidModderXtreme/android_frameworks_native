@@ -65,6 +65,9 @@ class String8;
  */
 class GLConsumer : public ConsumerBase {
 public:
+#ifdef STE_HARDWARE
+    enum { NUM_BLIT_BUFFER_SLOTS = 2 };
+#endif
     typedef ConsumerBase::FrameAvailableListener FrameAvailableListener;
 
     // GLConsumer constructs a new GLConsumer object. tex indicates the
@@ -415,6 +418,10 @@ private:
     // mGraphicBufferAlloc is the connection to SurfaceFlinger that is used to
     // allocate new GraphicBuffer objects.
     sp<IGraphicBufferAlloc> mGraphicBufferAlloc;
+
+
+    sp<GraphicBuffer> mBlitSlots[NUM_BLIT_BUFFER_SLOTS];
+    int mNextBlitSlot;
 #endif
 
     // mEglContext is the OpenGL ES context with which this GLConsumer is
